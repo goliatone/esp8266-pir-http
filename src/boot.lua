@@ -6,7 +6,8 @@ print("Setting up wifi")
 SSID = ""
 PSWD = ""
 
---- we load config file
+--- we load config file, hardcoded values in config.lua
+--- file, declared as global
 CONFIG_FILE = "config.lua"
 c = file.list()
 if c[CONFIG_FILE] then
@@ -34,6 +35,17 @@ tmr.alarm(WIFI_ALARM, WIFI_DELAY, 1, function()
     else
         tmr.stop(WIFI_ALARM)
         print("** Done..."..wifi.sta.getip())
-        dofile(PROGRAM_FILE)
+
+        --- create sensor instance
+        local sensor = dofile(PROGRAM_FILE)()
+
+        --- trigger self registration script
+        local manager = dofile(SELF_REGISTRATION)(IP, PORT, REGISTRATION_ENDPOINT)
+
+        manager.register(function()
+            print("On self registration complete.")
+            --- manager is registered, fire it up!
+            sensor.initialize()
+        end)
     end
 end)
