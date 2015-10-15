@@ -15,12 +15,26 @@ local exports = function(ip, port, endpoint)
     self.payload.tag = "PIR"
     self.payload.alias = node.chipid()
 
+    function self.build_post_request(ip, path, value)
+        local payload = cjson.encode(value)
+        print("ip "..ip.." path "..path.." value "..payload)
+
+        local content = "POST " .. path .. " HTTP/1.1\r\n" ..
+        "Host: " .. ip .. "\r\n" ..
+        "Connection: close\r\n" ..
+        "Content-Type: application/json\r\n" ..
+        "Content-Length: " .. string.len(payload) .. "\r\n" ..
+        "\r\n" .. payload
+
+        return content
+    end
+
     function self.register(callback)
-        conn = net.createConnection(net.TCP, 0)
+        local conn = net.createConnection(net.TCP, 0)
         conn:connect(self.PORT, self.IP)
 
         --- Create HTTP POST raw headers and body
-        request = util.build_post_request(self.IP, self.ENDPOINT, self.payload)
+        local request = self.build_post_request(self.IP, self.ENDPOINT, self.payload)
 
         conn:send(request, function()
             print("Registration request sent")
