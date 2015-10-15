@@ -5,17 +5,51 @@ local exports = function(config)
     --- configuration options
     self.PIR = config.pir
     self.LED = config.led
+
     self.IP = config.ip
     self.PORT = config.port
     self.ENDPOINT = config.endpoint
 
-    print("sensor config: IP "..config.ip)
+    print("------")
     print("sensor config: LED "..config.led)
     print("sensor config: PIR "..config.pir)
+    print("sensor config: IP "..config.ip)
     print("sensor config: PORT "..config.port)
     print("sensor config: ENDPOINT "..config.endpoint)
 
     self.movement = 0
+
+    --- TODO: move out
+    function self.build_post_request(ip, path, value)
+        local payload = cjson.encode(value)
+        print("ip "..ip.." path "..path.." value "..payload)
+
+        local content = "POST " .. path .. " HTTP/1.1\r\n" ..
+        "Host: " .. ip .. "\r\n" ..
+        "Connection: close\r\n" ..
+        "Content-Type: application/json\r\n" ..
+        "Content-Length: " .. string.len(payload) .. "\r\n" ..
+        "\r\n" .. payload
+
+        return content
+    end
+
+    function self.httpPost(ip, port, endpoint, payload)
+
+        local conn = net.createConnection(net.TCP, 0)
+        conn:connect(port, ip)
+
+        --- Create HTTP POST raw headers and body
+        local request = self.build_post_request(ip, endpoint, payload)
+        print("")
+        print(request)
+
+        conn:send(request, function()
+            print("Request sent")
+            conn:close()
+        end)
+    end
+    ---
 
     --- Get temp and send data to thingspeak.com
     function self.collect_data()
@@ -37,7 +71,7 @@ local exports = function(config)
             gpio.write(self.LED, gpio.LOW)
 
             --- POST current value
-            util.httpPost(self.IP, self.PORT, self.ENDPOINT, {movement = movement})
+            self.httpPost(self.IP, self.PORT, self.ENDPOINT, {movement = movement})
         end
     end
 
