@@ -3,7 +3,7 @@ print("Executing boot.lua")
 print("Setting up wifi")
 
 --- Include utils
-util = dofile("util.lua")()
+-- util = dofile("util.lua")()
 
 --- we load config file, hardcoded values in config.lua
 --- file, declared as global
