@@ -1,6 +1,6 @@
 
 local exports = function(ip, port, endpoint)
-    
+
     local self = {}
     self.IP = ip
     self.PORT = port
@@ -14,7 +14,7 @@ local exports = function(ip, port, endpoint)
 
     function build_post_request(path, value)
         payload = cjson.encode(value)
-    
+
         return "POST " .. path .. " HTTP/1.1\r\n" ..
         "Host: " .. IP .. "\r\n" ..
         "Connection: close\r\n" ..
@@ -23,17 +23,21 @@ local exports = function(ip, port, endpoint)
         "\r\n" .. payload
     end
 
-    function self.register()
+    function self.register(callback)
         conn = net.createConnection(net.TCP, 0)
         conn:connect(self.PORT, self.IP)
-    
+
         --- Create HTTP POST raw headers and body
         request = build_post_request(self.ENDPOINT, self.payload)
-    
+
         conn:send(request, function()
             print("Registration request sent")
             conn:close()
-        end)        
+
+            if(callback) then
+                callback()
+            end
+        end)
     end
 
     return self
