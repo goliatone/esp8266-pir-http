@@ -17,7 +17,7 @@ local exports = function(config)
     print("sensor config: PORT "..config.port)
     print("sensor config: ENDPOINT "..config.endpoint)
 
-    self.movement = 0
+    self.movement = 1
 
     --- TODO: move out
     function self.build_post_request(ip, path, value)
@@ -41,8 +41,6 @@ local exports = function(config)
 
         --- Create HTTP POST raw headers and body
         local request = self.build_post_request(ip, endpoint, payload)
-        print("")
-        print(request)
 
         conn:send(request, function()
             print("Request sent")
