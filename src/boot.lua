@@ -2,9 +2,8 @@
 print("Executing boot.lua")
 print("Setting up wifi")
 
---- define default values
-SSID = ""
-PSWD = ""
+--- Include utils
+util = dofile("util.lua")()
 
 --- we load config file, hardcoded values in config.lua
 --- file, declared as global
@@ -37,7 +36,13 @@ tmr.alarm(WIFI_ALARM, WIFI_DELAY, 1, function()
         print("** Done..."..wifi.sta.getip())
 
         --- create sensor instance
-        local sensor = dofile(PROGRAM_FILE)()
+        local sensor = dofile(PROGRAM_FILE)({
+            ip = IP,
+            port = PORT,
+            endpoint = ENDPOINT,
+            pir = PIR,
+            led = LED
+        })
 
         --- trigger self registration script
         local manager = dofile(SELF_REGISTRATION)(IP, PORT, REGISTRATION_ENDPOINT)
