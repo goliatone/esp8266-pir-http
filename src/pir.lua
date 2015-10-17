@@ -1,14 +1,14 @@
 
 local exports = function(config)
 
-    local self = {}
+    local pir = {}
     --- configuration options
-    self.PIR = config.pir
-    self.LED = config.led
+    pir.PIR = config.pir
+    pir.LED = config.led
 
-    self.IP = config.ip
-    self.PORT = config.port
-    self.ENDPOINT = config.endpoint
+    pir.IP = config.ip
+    pir.PORT = config.port
+    pir.ENDPOINT = config.endpoint
 
     print("------")
     print("sensor config: LED "..config.led)
@@ -17,10 +17,10 @@ local exports = function(config)
     print("sensor config: PORT "..config.port)
     print("sensor config: ENDPOINT "..config.endpoint)
 
-    self.movement = 1
+    pir.movement = 0
 
     --- TODO: move out
-    function self.build_post_request(ip, path, value)
+    function pir.build_post_request(ip, path, value)
         local payload = cjson.encode(value)
         print("ip "..ip.." path "..path.." value "..payload)
 
@@ -34,13 +34,13 @@ local exports = function(config)
         return content
     end
 
-    function self.httpPost(ip, port, endpoint, payload)
+    function pir.httpPost(ip, port, endpoint, payload)
 
         local conn = net.createConnection(net.TCP, 0)
         conn:connect(port, ip)
 
         --- Create HTTP POST raw headers and body
-        local request = self.build_post_request(ip, endpoint, payload)
+        local request = pir.build_post_request(ip, endpoint, payload)
 
         conn:send(request, function()
             print("Request sent")
@@ -50,46 +50,46 @@ local exports = function(config)
     ---
 
     --- Get temp and send data to thingspeak.com
-    function self.collect_data()
+    function pir.collect_data()
         --- Read PIR value
-        local movement = gpio.read(self.PIR)
+        local movement = gpio.read(pir.PIR)
 
         --- If we have a change in state
-        if self.movement == movement then
+        if pir.movement == movement then
             --- and the current state is off
-            if self.movement == 0 then
+            if pir.movement == 0 then
                 --- switch LED off
-                gpio.write(self.LED, gpio.HIGH)
+                gpio.write(pir.LED, gpio.HIGH)
             end
         else
             print("Movement: "..movement)
             --- we store our current state
-            self.movement = movement
+            pir.movement = movement
             --- switch LED on
-            gpio.write(self.LED, gpio.LOW)
+            gpio.write(pir.LED, gpio.LOW)
 
             --- POST current value
-            self.httpPost(self.IP, self.PORT, self.ENDPOINT, {movement = movement})
+            pir.httpPost(pir.IP, pir.PORT, pir.ENDPOINT, {movement = movement})
         end
     end
 
     ------ MAIN ------
     -- send data every X ms to thing speak
-    function self.initialize()
-        print("Initializing PIR module led: ".. self.LED .." pir: ".. self.PIR)
+    function pir.initialize()
+        print("Initializing PIR module led: ".. pir.LED .." pir: ".. pir.PIR)
 
         --- set GPIO modes
-        gpio.mode(self.LED, gpio.OUTPUT)
-        gpio.mode(self.PIR, gpio.INT)
+        gpio.mode(pir.LED, gpio.OUTPUT)
+        gpio.mode(pir.PIR, gpio.INT)
 
         --- capture changes on PIR
-        gpio.trig(self.PIR, "both", self.collect_data)
+        gpio.trig(pir.PIR, "both", pir.collect_data)
 
         --- check every 2 seconds the PIR status
-        tmr.alarm(2, 2000, 1, self.collect_data)
+        tmr.alarm(2, 2000, 1, pir.collect_data)
     end
 
-    return self
+    return pir
 end
 
 return exports
