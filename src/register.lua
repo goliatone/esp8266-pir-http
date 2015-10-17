@@ -1,21 +1,21 @@
 
 local exports = function(ip, port, endpoint)
 
-    --- ego trip, create "self". Self made.
-    local self = {}
-    self.IP = ip
-    self.PORT = port
-    self.ENDPOINT = endpoint
+    --- ego trip, create "registry". registry made.
+    local registry = {}
+    registry.IP = ip
+    registry.PORT = port
+    registry.ENDPOINT = endpoint
 
     --- construct payload template,
     --- to be sent during registration
-    self.payload = {}
-    self.payload.status = "online"
-    self.payload.type = "ESP8266"
-    self.payload.tag = "PIR"
-    self.payload.alias = node.chipid()
+    registry.payload = {}
+    registry.payload.status = "online"
+    registry.payload.type = "ESP8266"
+    registry.payload.tag = "PIR"
+    registry.payload.alias = node.chipid()
 
-    function self.build_post_request(ip, path, value)
+    function registry.build_post_request(ip, path, value)
         local payload = cjson.encode(value)
         print("ip "..ip.." path "..path.." value "..payload)
 
@@ -29,12 +29,12 @@ local exports = function(ip, port, endpoint)
         return content
     end
 
-    function self.register(callback)
+    function registry.register(callback)
         local conn = net.createConnection(net.TCP, 0)
-        conn:connect(self.PORT, self.IP)
+        conn:connect(registry.PORT, registry.IP)
 
         --- Create HTTP POST raw headers and body
-        local request = self.build_post_request(self.IP, self.ENDPOINT, self.payload)
+        local request = registry.build_post_request(registry.IP, registry.ENDPOINT, registry.payload)
 
         conn:send(request, function()
             print("Registration request sent")
@@ -46,7 +46,7 @@ local exports = function(ip, port, endpoint)
         end)
     end
 
-    return self
+    return registry
 end
 
 return exports
