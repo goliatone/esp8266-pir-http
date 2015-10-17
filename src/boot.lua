@@ -21,36 +21,23 @@ wifi.sta.config(SSID, PSWD)
 wifi.sta.connect()
 
 --- Start the WiFi connection
-local cnt = 0
+local count = 0
+local maxtries = 20
 
 local WIFI_ALARM = 1
 local WIFI_DELAY = 1000
-local PROGRAM_FILE = "pir.lua"
 
 tmr.alarm(WIFI_ALARM, WIFI_DELAY, 1, function()
-    if wifi.sta.status() ~= 5 and cnt < 20 then
-        print("Connecting..."..cnt)
-        cnt = cnt + 1
+    if wifi.sta.status() ~= 5 and count < maxtries then
+        print("Connecting..."..count)
+        count = count + 1
     else
         tmr.stop(WIFI_ALARM)
-        print("** Done..."..wifi.sta.getip())
-
-        --- create sensor instance
-        local sensor = dofile(PROGRAM_FILE)({
-            ip = IP,
-            port = PORT,
-            endpoint = ENDPOINT,
-            pir = PIR,
-            led = LED
-        })
-
-        --- trigger self registration script
-        local manager = dofile(SELF_REGISTRATION)(IP, PORT, REGISTRATION_ENDPOINT)
-
-        manager.register(function()
-            print("On self registration complete.")
-            --- manager is registered, fire it up!
-            sensor.initialize()
-        end)
+        if count == maxtries then
+            print("Unable to connect to WiFi")
+        else
+            print("** Done..."..wifi.sta.getip())
+            dofile("main.lua")
+        end
     end
 end)
