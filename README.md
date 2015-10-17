@@ -21,4 +21,8 @@ The only challenge was to find a 3v to 5v booster to power the PIR from the boar
 
 ---
 
+Using ESPbootloader from [sebastianhodapp][1]
+
+[1]: https://github.com/sebastianhodapp/ESPbootloader
+
 More instructions to come...
