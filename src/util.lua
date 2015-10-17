@@ -1,9 +1,9 @@
 ---TODO: Make real module!
 local exports = function()
 
-    local self = {}
+    local util = {}
 
-    function self.build_post_request(ip, path, value)
+    function util.build_post_request(ip, path, value)
         local payload = cjson.encode(value)
         print("ip "..ip.." path "..path.." value "..payload)
 
@@ -17,13 +17,13 @@ local exports = function()
         return content
     end
 
-    function self.httpPost(ip, port, endpoint, payload)
+    function util.httpPost(ip, port, endpoint, payload)
 
         local conn = net.createConnection(net.TCP, 0)
         conn:connect(port, ip)
 
         --- Create HTTP POST raw headers and body
-        local request = self.build_post_request(ip, endpoint, payload)
+        local request = util.build_post_request(ip, endpoint, payload)
 
         print(request)
 
@@ -33,7 +33,7 @@ local exports = function()
         end)
     end
 
-    return self
+    return util
 end
 
 return exports
