@@ -3,8 +3,8 @@ staip = nil
 
 -- AP configuration
 apcfg = {}
-apcfg.ssid="WEETHING_"..node.chipid()
-apcfg.pwd="weethings"
+apcfg.pwd = "weethings"
+apcfg.ssid = "WEETHING_"..node.chipid()
 
 ipcfg = {}
 ipcfg.ip = "192.168.1.1"
@@ -24,6 +24,15 @@ print(wifi.ap.getip())
 -- get AP IP, don't know why, but without it everything breaks
 tmr.alarm(2, 500, 0, wifi.ap.getip)
 
+
+local unescape = function (s)
+    s = string.gsub(s, "+", " ")
+    s = string.gsub(s, "%%(%x%x)", function (h)
+        return string.char(tonumber(h, 16))
+    end)
+    return s
+end
+
 --create HTTP server
 srv = net.createServer(net.TCP)
 
@@ -38,27 +47,41 @@ srv:listen(80, function(conn)
             --TODO better getting of ssid and password
             --parse GET response
             local parameters = string.match(payload, "^GET(.*)HTTP\/1.1")
-            if parameters then
-                ssid = string.match(parameters, "SSID=([a-zA-Z0-9+]+)")
-                password = string.match(parameters, "PASS=([a-zA-Z0-9+]+)")
+            print("Parameters: "..parameters)
+
+            local _GET = {}
+            if (parameters ~= nil) then
+                for k, v in string.gmatch(parameters, "([_%w]+)=([^%&]+)&*") do
+                    print("KEY "..k.." value "..v)
+                    _GET[k] = unescape(v)
+                end
+                -- ssid = string.match(parameters, "ssid=([a-zA-Z0-9+]+)")
+                -- password = string.match(parameters, "password=([a-zA-Z0-9+]+)")
             end
-            if ssid and password then
+
+            print("Collected _GET")
+            for k , v in pairs(_GET) do
+                print(tostring(k).."  "..tostring(v))
+            end
+
+            if _GET.ssid and _GET.password then
                 --wait for 30 seconds and refresh webpage (wait for IP)
                 local refresh = [[<script type='text/javascript'>
                     var timeout = 30;window.onload=function(){function countdown() {
                     if ( typeof countdown.counter == 'undefined' ) {countdown.counter = timeout;}
                     if(countdown.counter > 0){document.getElementById('count').innerHTML = countdown.counter--; setTimeout(countdown, 1000);}
                     else {location.href = 'http://192.168.1.1';};};countdown();};
-                    </script><h2>Autoconfiguration will end in <span id='count'></span> seconds</h2></body></html>]]
+                    </script><h2>Autoconfiguration will end in <span id='count'></span> seconds</h2>
+                    <p>If the device disconnects, just reboot...</p>
+                    </body></html>]]
                 conn:send(refresh)
                 conn:close()
 
-                ssid = string.gsub(ssid,'+',' ')
-                print("ssid: '"..ssid.."' password: '"..password.."'")
+                print("ssid: '".._GET.ssid.."' password: '".._GET.password.."'")
                 --switch to STATIONAP and connect
                 wifi.setmode(wifi.STATIONAP)
                 -- configure the module so it can connect to the network using the received SSID and password
-                wifi.sta.config(ssid, password)
+                wifi.sta.config(_GET.ssid, _GET.password)
                 wifi.sta.autoconnect(1)
                 attempts = 0
                 --wait for IP
@@ -77,18 +100,19 @@ srv:listen(80, function(conn)
                 end)
                 --save config to file
                 file.open("config.lua","w+")
-                file.writeline('ssid = "'..ssid..'"')
-                file.writeline('password = "'..password..'"')
+                -- write every variable in the form
+                for k,v in pairs(_GET) do
+                    file.writeline(k..' = "'..v ..'"')
+                end
                 file.flush()
                 file.close()
                 node.compile("config.lua")
-                file.remove("config.lua")
+                -- file.remove("config.lua")
             else
                 --Print error and retry
                 if attempts > 50 then
                     if (wifi.sta.status() == 2) then
                         error_message = "Wrong network password, try again"
-                        conn:send(error_message)
                     elseif (wifi.sta.status() == 3) then
                         error_message = "Could not find network, try again"
                     else
@@ -97,26 +121,34 @@ srv:listen(80, function(conn)
                     conn:send("<h2 style='color:red'>"..error_message.."</h2>")
                 end
                 --Main configuration web page
-                local index = [[<h2>The module MAC address is: ]].. ap_mac..[[</h2>
+                local index = [[<h2>The module MAC address is: ${ap_mac}</h2>
                     <h2>Enter SSID and Password for your WIFI router</h2>
                     <form action='' method='get' accept-charset='ascii'>
                     SSID:
-                    <input type='text' name='SSID' value='' maxlength='32' placeholder='your network name'/>
-                    <br />
-                    Password:
-                    <input type='text' name='PASS' value='' maxlength='100' placeholder='network password'/>
+                    <input type='text' name='ssid' value='' maxlength='32' placeholder='your network name'/>
+                    <br/>
+                    <label>Password:</label>
+                    <input type='password' name='password' value='' maxlength='100' placeholder='network password'/>
+                    <label>Service Endpoint:</label>
+                    <input type='text' name='service_endpoint' value='' placeholder='Service endpoint'/>
+                    <label>Registration Endpoint:</label>
+                    <input type='text' name='registration_endpoint' value='' placeholder='Registration endpoint'/>
                     <input type='submit' value='Submit' />
                     </form> </body> </html>]]
+
+                index = template(index)
                 conn:send(index)
                 conn:close()
             end
         else
             --Successfully configured message
             local success = [[<h3>Configuration is now complete</h3>
-                <h4>The module MAC address is: ]].. ap_mac..[[</h4>
-                <h4>IP address is: ]]..staip..[[</h4>
+                <h4>The module MAC address is: ${ap_mac}</h4>
+                <h4>IP address is: ${staip}</h4>
                 <h4>Rebooting now...</h4>
                 </body> </html>]]
+
+            success = template(success)
             conn:send(success)
             conn:close()
             print('Configuration complete - reboot')
@@ -125,3 +157,9 @@ srv:listen(80, function(conn)
     end)
     conn:on("sent",function(conn) conn:close() end)
 end)
+
+function template(buf)
+    return buf:gsub('($%b{})', function(w)
+        return _G[w:sub(3, -2)] or ""
+    end)
+end
