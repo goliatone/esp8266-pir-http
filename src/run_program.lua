@@ -1,6 +1,6 @@
 -- Start your normal program routines here
-print("Execute code")
 dofile("config.lc")
+print("Execute code ssid"..ssid.." psw "..password)
 wifi.setmode(wifi.STATION)
 wifi.sta.config(ssid,password)
 wifi.sta.connect()
