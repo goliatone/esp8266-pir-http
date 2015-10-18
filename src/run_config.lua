@@ -122,7 +122,7 @@ function setup_server()
             client:send("Content-Type    text/html; charset=UTF-8\r\n")
             client:send("Content-Length:" .. tostring(payloadLen) .. "\r\n")
             client:send("Connection:close\r\n\r\n")
-            buffered(buf, function(str)client:send(str)end, function()client.close()end)
+            buffered(buf, function(str)client:send(str)end, function(client)client.close()end)
             -- client:send(buf, function(client) client:close() end);
         end)
     end)
@@ -138,12 +138,14 @@ function dorestart()
 end
 
 function buffered(str, send, ondone)
+    print("buffering chunks")
     -- 1460 is the max we can send. Frames are actually 1500, but header
-    index = 0; offset = 1400; total = string.len(str);
+    index = 0; offset = 1400; total = string.len(str); i = 0;
     repeat
         chunk = string.sub(str, index, index + offset)
         index = index + offset
         send(chunk)
-    until (index > total)
+        i = i + 1
+    until (index > total) or (i > 100)
     ondone()
 end
