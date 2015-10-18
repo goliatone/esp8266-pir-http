@@ -6,8 +6,10 @@
 
 
 -- Change ssid and password of AP in configuration mode
-ssid = "ESP" ..node.chipid()
-psw  = "espconfig"
+ssid = "WEETHING_" ..node.chipid()
+psw  = "weethings"
+
+print("AP SETTINGS: SSID "..ssid.." PSW "..psw)
 
 -- If GPIO0 changes during the countdown, launch config
 gpio.mode(3, gpio.INT)
@@ -21,7 +23,7 @@ local countdown = 5
 tmr.alarm(1, 5000, 1, function()
 	if wifi.sta.getip() == nil then
 		print("IP unavailable, waiting.")
-	else 
+	else
 		tmr.stop(1)
 		print("Connected, IP is "..wifi.sta.getip())
 		dofile("run_program.lua")
@@ -32,7 +34,7 @@ tmr.alarm(0,1000,1,function()
      print(countdown)
      countdown = countdown -1
      if (countdown == 0) then
-          gpio.mode(3,gpio.FLOAT)
+          gpio.mode(3, gpio.FLOAT)
           tmr.stop(0)
           if pcall(function ()
           	dofile("config.lc")
