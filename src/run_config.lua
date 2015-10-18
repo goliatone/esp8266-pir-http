@@ -22,6 +22,7 @@ local unescape = function (s)
 end
 
 print("Get available APs")
+local MAX_SSID_OPTIONS = 10
 wifi.setmode(wifi.STATION)
 wifi.sta.getap(function(t)
     available_aps = ""
@@ -30,9 +31,10 @@ wifi.sta.getap(function(t)
         for k,v in pairs(t) do
             ap = string.format("%-10s",k)
             ap = trim(ap)
+            print("AP: "..ap)
             available_aps = available_aps .. "<option value='".. ap .."'>".. ap .."</option>"
-            count = count+1
-            if (count>=10) then break end
+            count = count + 1
+            if (count >= MAX_SSID_OPTIONS) then break end
         end
         available_aps = available_aps .. "<option value='-1'>---hidden SSID---</option>"
         setup_server()
@@ -40,12 +42,13 @@ wifi.sta.getap(function(t)
 end)
 
 function setup_server()
-
     -- Prepare HTML form
     print("Preparing HTML Form")
-    if (file.open('html/configform.html','r')) then
+    if (file.open('config.html','r')) then
+    -- if (file.open('html/configform.html','r')) then
         buf = file.read()
         file.close()
+        collectgarbage()
     end
     -- interpret variables in strings
     -- ssid="WLAN01"
@@ -55,17 +58,33 @@ function setup_server()
         return _G[w:sub(3, -2)] or ""
     end)
 
-  print("Setting up Wifi AP")
+    print("Setting up Wifi AP")
     wifi.setmode(wifi.SOFTAP)
-  local cfg={}
-  cfg.ssid = "ESPconfig"
-  cfg.pwd  = "espconfig"
-  wifi.ap.config(cfg)
+    -- configure our connection
+    local cfg={}
+    cfg.ssid = "WEETHING_CONFIG_"..node.chipid()
+    cfg.pwd  = "weeconfig"
+    wifi.ap.config(cfg)
+    print("WE ARE CONFIGURING: "..cfg.ssid.." pwd "..cfg.pwd)
+    --- get MAC now
+    ap_mac = wifi.ap.getmac()
 
-  print("Setting up webserver")
-  local srv = nil
-    srv=net.createServer(net.TCP)
+    local ipcfg={}
+    ipcfg.ip = "192.168.1.1"
+    ipcfg.netmask = "255.255.255.0"
+    ipcfg.gateway = "192.168.1.1"
+
+    wifi.ap.setip(ipcfg)
+
+    print(wifi.ap.getip())
+
+    print("Setting up webserver")
+
+    local srv = nil
+    srv = net.createServer(net.TCP)
+
     srv:listen(80,function(conn)
+
         conn:on("receive", function(client,request)
             local _, _, method, path, vars = string.find(request, "([A-Z]+) (.+)?(.+) HTTP");
             if(method == nil)then
@@ -91,8 +110,10 @@ function setup_server()
                 file.close()
                 node.compile("config.lua")
                 file.remove("config.lua")
-                client:send(buf);
-                node.restart();
+                buffered(buf, function() client:send() end, function()
+                    print("All stuff sent!...restarting in a bit")
+                    tmr.alarm (0, 4000,0, dorestart)
+                end)
             end
 
             payloadLen = string.len(buf)
@@ -100,7 +121,8 @@ function setup_server()
             client:send("Content-Type    text/html; charset=UTF-8\r\n")
             client:send("Content-Length:" .. tostring(payloadLen) .. "\r\n")
             client:send("Connection:close\r\n\r\n")
-            client:send(buf, function(client) client:close() end);
+            buffered(buf, function()client:send()end, function()client.close()end)
+            -- client:send(buf, function(client) client:close() end);
         end)
     end)
     print("Setting up Webserver done. Please connect to: " .. wifi.ap.getip())
@@ -108,4 +130,19 @@ end
 
 function trim(s)
     return (s:gsub("^%s*(.-)%s*$", "%1"))
+end
+
+function dorestart()
+    node.restart()
+end
+
+function buffered(str, send, ondone)
+    -- 1460 is the max we can send. Frames are actually 1500, but header
+    index = 0; offset = 1400; total = string.len(str);
+    repeat
+        chunk = string.sub(str, index, index + offset)
+        index = index + offset
+        send(chunk)
+    until (index > total)
+    ondone()
 end
