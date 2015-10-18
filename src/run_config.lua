@@ -22,7 +22,7 @@ local unescape = function (s)
 end
 
 print("Get available APs")
-local MAX_SSID_OPTIONS = 10
+local MAX_SSID_OPTIONS = 7
 wifi.setmode(wifi.STATION)
 wifi.sta.getap(function(t)
     available_aps = ""
@@ -44,6 +44,7 @@ end)
 function setup_server()
     -- Prepare HTML form
     print("Preparing HTML Form")
+    collectgarbage()
     if (file.open('config.html','r')) then
     -- if (file.open('html/configform.html','r')) then
         buf = file.read()
@@ -121,7 +122,7 @@ function setup_server()
             client:send("Content-Type    text/html; charset=UTF-8\r\n")
             client:send("Content-Length:" .. tostring(payloadLen) .. "\r\n")
             client:send("Connection:close\r\n\r\n")
-            buffered(buf, function()client:send()end, function()client.close()end)
+            buffered(buf, function(str)client:send(str)end, function()client.close()end)
             -- client:send(buf, function(client) client:close() end);
         end)
     end)
