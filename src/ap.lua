@@ -25,14 +25,6 @@ print(wifi.ap.getip())
 tmr.alarm(2, 500, 0, wifi.ap.getip)
 
 
-local unescape = function (s)
-    s = string.gsub(s, "+", " ")
-    s = string.gsub(s, "%%(%x%x)", function (h)
-        return string.char(tonumber(h, 16))
-    end)
-    return s
-end
-
 --create HTTP server
 if srv ~= nil then
     srv.close()
@@ -42,7 +34,9 @@ srv = net.createServer(net.TCP)
 
 srv:listen(80, function(conn)
     conn:on("receive", function(conn, payload)
-        --print(payload)
+
+        print(payload)
+
         --webpage header
         local header = [[<!DOCTYPE html>
         <html lang='en'>
@@ -56,20 +50,11 @@ srv:listen(80, function(conn)
         conn:send(header)
         --print(wifi.sta.status())
         if wifi.sta.status() ~= 5 then
-            --TODO better getting of ssid and password
             --parse GET response
             local parameters = string.match(payload, "^GET(.*)HTTP\/1.1")
             print("Parameters: "..parameters)
 
-            local _GET = {}
-            if (parameters ~= nil) then
-                for k, v in string.gmatch(parameters, "([_%w]+)=([^%&]+)&*") do
-                    print("KEY "..k.." value "..v)
-                    _GET[k] = unescape(v)
-                end
-                -- ssid = string.match(parameters, "ssid=([a-zA-Z0-9+]+)")
-                -- password = string.match(parameters, "password=([a-zA-Z0-9+]+)")
-            end
+            local _GET = parsequery(parameters)
 
             print("Collected _GET")
             for k , v in pairs(_GET) do
@@ -85,64 +70,57 @@ srv:listen(80, function(conn)
                     else {location.href = 'http://192.168.1.1';};};countdown();};
                     </script><h2>Autoconfiguration will end in <span id='count'></span> seconds</h2>
                     <p>If the device disconnects, just reboot...</p>
-                    </body></html>]]
+                    ]]
+                    -- </body></html>]]
                 conn:send(refresh)
-                conn:close()
+                -- conn:close()
 
                 print("ssid: '".._GET.ssid.."' password: '".._GET.password.."'")
                 --switch to STATIONAP and connect
                 wifi.setmode(wifi.STATIONAP)
+
                 -- configure the module so it can connect to the network using the received SSID and password
                 wifi.sta.config(_GET.ssid, _GET.password)
                 wifi.sta.autoconnect(1)
-                attempts = 0
+
                 --wait for IP
+                attempts = 0
                 tmr.alarm (1, 500, 1, function ()
                     if wifi.sta.getip () ~= nil then
                         tmr.stop(1)
                         staip = wifi.sta.getip()
+                        conn:send("<script>location.href = '"..staip.."';</script>", function(conn)
+                            conn:close()
+                        end)
                         print("Config done, IP is " .. staip)
                     end
                     if attempts > 50 then
                         tmr.stop(1)
-                        --print("Cannot connect to AP")
+                        conn:close()
+                        print("Cannot connect to AP")
                     end
                     print(attempts)
                     attempts = attempts + 1
                 end)
+
                 --save config to file
-                file.open("config.lua","w+")
-                -- write every variable in the form
-                for k,v in pairs(_GET) do
-                    file.writeline(k..' = "'..v ..'"')
-                end
-                file.flush()
-                file.close()
-                node.compile("config.lua")
-                -- file.remove("config.lua")
+                saveconfig(_GET, false)
             else
                 --Print error and retry
                 if attempts > 50 then
-                    if (wifi.sta.status() == 2) then
-                        error_message = "Wrong network password, try again"
-                    elseif (wifi.sta.status() == 3) then
-                        error_message = "Could not find network, try again"
-                    else
-                        error_message = "Cannot connect to network, try again"
-                    end
+                    local error_message = geterror()
                     conn:send("<h2 style='color:red'>"..error_message.."</h2>")
                 end
                 --Main configuration web page
+                --TODO: Make form dynamically using config object
                 local index = [[<h2>The module MAC address is: <b>${ap_mac}</b></h2> <h3>Enter SSID and Password for your WIFI router</h3> <form action='' method='get' accept-charset='ascii'> <table><tbody> <tr> <td><label>SSID:</label></td></tr><tr> <td><input type='text' name='ssid' value='' maxlength='32' placeholder='your network name'/></td></tr><tr> <td><label>Password:</label></td></tr><tr> <td><input type='password' name='password' value='' maxlength='100' placeholder='network password'/></td></tr><tr> <td><label>Service Endpoint:</label></td></tr><tr> <td><input type='text' name='service_endpoint' value='' placeholder='Service endpoint'/></td></tr><tr> <td><label>Registration Endpoint:</label></td></tr><tr> <td><input type='text' name='registration_endpoint' value='' placeholder='Registration endpoint'/></td></tr><tr> <td><input type='submit' value='Submit'/></td></tr></tbody></table> </form> </body> </html>]]
-
                 index = template(index)
+
                 buffered(index, function(chunk)
                     conn:send(chunk)
                 end, function()
                     conn:close()
                 end)
-                -- conn:send(index)
-                -- conn:close()
             end
         else
             --Successfully configured message
@@ -160,18 +138,33 @@ srv:listen(80, function(conn)
         end
     end)
 
-    conn:on("sent",function(conn)
+    conn:on("sent", function(conn)
+        print("connection sent, closing now")
         conn:close()
         collectgarbage()
     end)
 end)
 
-function template(buf)
+--[[
+    Replace tokens from string using
+    either the provided context or the
+    global namespace `_G`.
+]]
+function template(buf, context)
+
+    if context == nil
+        context = _G
+    end
+
     return buf:gsub('($%b{})', function(w)
-        return _G[w:sub(3, -2)] or ""
+        return context[w:sub(3, -2)] or ""
     end)
 end
 
+--[[
+    Brek a string in chunks smaller than max frame
+    length 1460.
+]]
 function buffered(str, send, ondone)
     print("buffering chunks")
 
@@ -188,4 +181,54 @@ function buffered(str, send, ondone)
     if ondone ~= nil then
         ondone()
     end
+end
+
+function saveconfig(dic, remove)
+    file.open("config.lua","w+")
+    -- write every variable in the form
+    for k,v in pairs(dic) do
+        file.writeline(k..' = "'..v ..'"')
+    end
+
+    file.flush()
+    file.close()
+
+    node.compile("config.lua")
+
+    if remove then
+        file.remove("config.lua")
+    end
+end
+
+function geterror()
+    local error_message = "Cannot connect to network, try again"
+
+    if (wifi.sta.status() == 2) then
+        error_message = "Wrong network password, try again"
+    elseif (wifi.sta.status() == 3) then
+        error_message = "Could not find network, try again"
+    end
+
+    return error_message
+end
+
+function parsequery(query)
+    local payload = {}
+
+    if (query ~= nil) then
+        for k, v in string.gmatch(query, "([_%w]+)=([^%&]+)&*") do
+            print("KEY "..k.." value "..v)
+            payload[k] = unescape(v)
+        end
+    end
+
+    return payload
+end
+
+function unescape(s)
+    s = string.gsub(s, "+", " ")
+    s = string.gsub(s, "%%(%x%x)", function (h)
+        return string.char(tonumber(h, 16))
+    end)
+    return s
 end
