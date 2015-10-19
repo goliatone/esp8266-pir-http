@@ -34,13 +34,25 @@ local unescape = function (s)
 end
 
 --create HTTP server
+if srv ~= nil then
+    srv.close()
+    print("Closing existing server")
+end
 srv = net.createServer(net.TCP)
 
 srv:listen(80, function(conn)
     conn:on("receive", function(conn, payload)
         --print(payload)
         --webpage header
-        local header = "<!DOCTYPE html><html lang='en'><body><h1>Wireless setup</h1><br/>"
+        local header = [[<!DOCTYPE html>
+        <html lang='en'>
+        <style>
+        html { height:95%; font-family: Helvetica, Verdana,serif; color:#fafafa;background-color:#212121; margin:30px; }
+        body{ width:80%; margin-left:auto; margin-right:auto; max-width:600px;}
+        table,input[type=text],input[type=password] {width:100%}
+        tr{line-height:30px;}
+        </style>
+        <body><h1>Wireless setup</h1><hr/>]]
         conn:send(header)
         --print(wifi.sta.status())
         if wifi.sta.status() ~= 5 then
@@ -121,24 +133,16 @@ srv:listen(80, function(conn)
                     conn:send("<h2 style='color:red'>"..error_message.."</h2>")
                 end
                 --Main configuration web page
-                local index = [[<h2>The module MAC address is: ${ap_mac}</h2>
-                    <h2>Enter SSID and Password for your WIFI router</h2>
-                    <form action='' method='get' accept-charset='ascii'>
-                    SSID:
-                    <input type='text' name='ssid' value='' maxlength='32' placeholder='your network name'/>
-                    <br/>
-                    <label>Password:</label>
-                    <input type='password' name='password' value='' maxlength='100' placeholder='network password'/>
-                    <label>Service Endpoint:</label>
-                    <input type='text' name='service_endpoint' value='' placeholder='Service endpoint'/>
-                    <label>Registration Endpoint:</label>
-                    <input type='text' name='registration_endpoint' value='' placeholder='Registration endpoint'/>
-                    <input type='submit' value='Submit' />
-                    </form> </body> </html>]]
+                local index = [[<h2>The module MAC address is: <b>${ap_mac}</b></h2> <h3>Enter SSID and Password for your WIFI router</h3> <form action='' method='get' accept-charset='ascii'> <table><tbody> <tr> <td><label>SSID:</label></td></tr><tr> <td><input type='text' name='ssid' value='' maxlength='32' placeholder='your network name'/></td></tr><tr> <td><label>Password:</label></td></tr><tr> <td><input type='password' name='password' value='' maxlength='100' placeholder='network password'/></td></tr><tr> <td><label>Service Endpoint:</label></td></tr><tr> <td><input type='text' name='service_endpoint' value='' placeholder='Service endpoint'/></td></tr><tr> <td><label>Registration Endpoint:</label></td></tr><tr> <td><input type='text' name='registration_endpoint' value='' placeholder='Registration endpoint'/></td></tr><tr> <td><input type='submit' value='Submit'/></td></tr></tbody></table> </form> </body> </html>]]
 
                 index = template(index)
-                conn:send(index)
-                conn:close()
+                buffered(index, function(chunk)
+                    conn:send(chunk)
+                end, function()
+                    conn:close()
+                end)
+                -- conn:send(index)
+                -- conn:close()
             end
         else
             --Successfully configured message
@@ -155,11 +159,33 @@ srv:listen(80, function(conn)
             tmr.alarm (0, 4000,0, function() node.restart() end)
         end
     end)
-    conn:on("sent",function(conn) conn:close() end)
+
+    conn:on("sent",function(conn)
+        conn:close()
+        collectgarbage()
+    end)
 end)
 
 function template(buf)
     return buf:gsub('($%b{})', function(w)
         return _G[w:sub(3, -2)] or ""
     end)
+end
+
+function buffered(str, send, ondone)
+    print("buffering chunks")
+
+    -- 1460 is the max we can send. Frames are actually 1500, but header
+    index = 0; offset = 1400; total = string.len(str); i = 0;
+
+    repeat
+        chunk = string.sub(str, index, index + offset)
+        index = index + offset
+        send(chunk, index > total)
+        i = i + 1
+    until (index > total) or (i > 100)
+
+    if ondone ~= nil then
+        ondone()
+    end
 end
