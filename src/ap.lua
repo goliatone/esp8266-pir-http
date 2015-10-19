@@ -64,10 +64,11 @@ srv:listen(80, function(conn)
             if _GET.ssid and _GET.password then
                 --wait for 30 seconds and refresh webpage (wait for IP)
                 local refresh = [[<script type='text/javascript'>
+                    window.REDIRECT = 'http://192.168.1.1';
                     var timeout = 30;window.onload=function(){function countdown() {
                     if ( typeof countdown.counter == 'undefined' ) {countdown.counter = timeout;}
                     if(countdown.counter > 0){document.getElementById('count').innerHTML = countdown.counter--; setTimeout(countdown, 1000);}
-                    else {location.href = 'http://192.168.1.1';};};countdown();};
+                    else {location.href = window.REDIRECT;};};countdown();};
                     </script><h2>Autoconfiguration will end in <span id='count'></span> seconds</h2>
                     <p>If the device disconnects, just reboot...</p>
                     ]]
@@ -89,7 +90,7 @@ srv:listen(80, function(conn)
                     if wifi.sta.getip () ~= nil then
                         tmr.stop(1)
                         staip = wifi.sta.getip()
-                        conn:send("<script>location.href = '"..staip.."';</script>", function(conn)
+                        conn:send("<script>window.REDIRECT = 'http://"..staip.."';</script>", function(conn)
                             conn:close()
                         end)
                         print("Config done, IP is " .. staip)
@@ -152,7 +153,7 @@ end)
 ]]
 function template(buf, context)
 
-    if context == nil
+    if context == nil then
         context = _G
     end
 
