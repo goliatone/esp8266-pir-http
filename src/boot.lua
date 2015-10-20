@@ -10,7 +10,7 @@ print("Setting up wifi")
 
 c = file.list()
 if not c["config.lc"] then
-    dofile("ap.lua")
+    dofile("wifi.lua")
 else
 
     dofile("config.lc")
