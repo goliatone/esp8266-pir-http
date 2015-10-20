@@ -1,5 +1,9 @@
 http = require('http')
 
+
+local PIR = 2
+local LED = 0
+
 --- SERVICE
 local service = {
     url = "http://192.168.1.147:8976/pir/movement"
