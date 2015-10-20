@@ -25,4 +25,11 @@ Using ESPbootloader from [sebastianhodapp][1]
 
 [1]: https://github.com/sebastianhodapp/ESPbootloader
 
+Server example [httpd][2]
+
+Boot config sequence [example][3]
+
+[2]: https://github.com/positron96/esp8266-bootconfig/blob/master/httpd.lua
+[3]: https://github.com/Ashishnk/esp8266-wifiConfig
+
 More instructions to come...
