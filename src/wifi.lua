@@ -20,6 +20,7 @@ local setap = function()
 
     wifi.ap.setip(ipcfg)
 
+    print("Set SOFTAP.. please change networks")
     print(wifi.ap.getip())
 end
 

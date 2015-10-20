@@ -1,6 +1,5 @@
 --- Set up WiFi, we want to move this to a config web portal
 print("Executing boot.lua")
-print("Setting up wifi")
 
 --- Include utils
 -- util = dofile("util.lua")()
@@ -10,16 +9,19 @@ print("Setting up wifi")
 
 c = file.list()
 if not c["config.lc"] then
+    print("Run WiFi AP configuration page")
     dofile("wifi.lua")
 else
-
+    print("Setting up WiFi")
     dofile("config.lc")
 
     wifi.setmode(wifi.STATION)
     wifi.sleeptype(wifi.NONE_SLEEP)
     wifi.sta.config(ssid, password)
-
     wifi.sta.connect()
+
+    -- ssid = nil
+    -- password = nil
 
     --- Start the WiFi connection
     local count = 0
@@ -39,6 +41,7 @@ else
             else
                 print("** Done..."..wifi.sta.getip())
                 dofile("main.lua")
+                -- collectgarbage()
             end
         end
     end)
