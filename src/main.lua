@@ -6,7 +6,7 @@ local LED = 0
 
 --- SERVICE
 local service = {
-    url = "http://192.168.1.147:8976/pir/movement"
+    url = endpoint_service
 }
 
 function service.register(url, done)
@@ -30,7 +30,7 @@ local pir = {
     LED = LED,
     PIR = PIR,
     movement = 0,
-    url = "http://192.168.1.147:8976/pir/movement"
+    url = endpoint_movement
 }
 
 function pir.collect_data()
