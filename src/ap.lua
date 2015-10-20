@@ -78,23 +78,6 @@ srv:listen(80, function(conn)
                 wifi.sta.config(_GET.ssid, _GET.password)
                 wifi.sta.autoconnect(1)
 
-                --wait for IP
-                attempts = 0
-                tmr.alarm (1, 500, 1, function ()
-                    if wifi.sta.getip () ~= nil then
-                        tmr.stop(1)
-                        staip = wifi.sta.getip()
-                        setap()
-                        print("Config done, IP is " .. staip)
-                    end
-                    if attempts > 50 then
-                        tmr.stop(1)
-                        setap()
-                        print("Cannot connect to AP")
-                    end
-                    print(attempts)
-                    attempts = attempts + 1
-                end)
                 --save config to file
                 file.open("config.lua","w+")
                 -- write every variable in the form
@@ -105,6 +88,24 @@ srv:listen(80, function(conn)
                 file.close()
                 node.compile("config.lua")
                 -- file.remove("config.lua")
+
+                --wait for IP
+                attempts = 0
+                tmr.alarm (11, 1000, 1, function ()
+                    if wifi.sta.getip () ~= nil then
+                        tmr.stop(11)
+                        staip = wifi.sta.getip()
+                        -- setap()
+                        print("Config done, IP is " .. staip)
+                    end
+                    if attempts > 50 then
+                        tmr.stop(11)
+                        -- setap()
+                        print("Cannot connect to AP")
+                    end
+                    print(attempts)
+                    attempts = attempts + 1
+                end)
             else
                 --Main configuration web page
                 if(parameters == "/ip") then
@@ -150,11 +151,14 @@ srv:listen(80, function(conn)
             conn:close()
 
             print('Configuration complete - reboot')
-            tmr.alarm (0, 4000,0, function() node.restart() end)
+            tmr.alarm (0, 4000,0, function()
+                node.restart()
+            end)
         end
     end)
 
     conn:on("sent",function(conn)
+        print("Sent...close and collectgarbage")
         conn:close()
         collectgarbage()
     end)
