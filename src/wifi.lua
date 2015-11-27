@@ -21,6 +21,7 @@ local setap = function()
     wifi.ap.setip(ipcfg)
 
     print("Set SOFTAP.. please change networks")
+    print("PWS "..apcfg.pwd.." SSID "..apcfg.ssid)
     print(wifi.ap.getip())
 end
 
